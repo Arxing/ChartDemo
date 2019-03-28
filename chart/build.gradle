@@ -51,4 +51,5 @@ tasks.withType(Javadoc) {
 
 
 
-apply from: 'W:/android/AxCore/mvn-push.gradle'
+//apply from: 'W:/android/AxCore/mvn-push.gradle'
+apply from: 'W:/as-workspace/AxLib/mvn-push.gradle'
