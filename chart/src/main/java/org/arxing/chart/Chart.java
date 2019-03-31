@@ -50,7 +50,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
     //rect
     private Rect rectXDescription = new Rect();
-    private Rect rectLines = new Rect();
+    private Rect rectChart = new Rect();
 
     //point
     private PointF touchPoint = new PointF(OUTSIDE_XY, OUTSIDE_XY);
@@ -61,6 +61,10 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
         int rows;
         int columns;
+        int chartMarginLeft = UnitParser.dp2px(getContext(), 10);
+        int chartMarginRight = UnitParser.dp2px(getContext(), 10);
+        int chartMarginTop = UnitParser.dp2px(getContext(), 10);
+        int chartMarginBottom = UnitParser.dp2px(getContext(), 10);
 
         {
             rows = 7;
@@ -111,18 +115,20 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     @Override public boolean handleMessage(Message msg) {
-        canvas = holder.lockCanvas(rectLines);
+        canvas = holder.lockCanvas();
         canvas.drawColor(Color.TRANSPARENT);
         pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
         canvas.drawPaint(pClean);
         pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
 
-        int width = rectLines.width();
-        int height = rectLines.height();
+        int width = rectChart.width();
+        int height = rectChart.height();
 
         canvas.drawColor(Color.BLACK);
         drawFrame(properties.rows, properties.columns, width, height);
         if (dataSet != null) {
+
+            logger.e("handle w=%s", rectChart.toString());
             drawData(dataSet.toPoints(), width, height);
             drawPoint(width, height);
         }
@@ -150,14 +156,16 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     @Override public boolean onTouchEvent(MotionEvent event) {
         float x = event.getX();
         float y = event.getY();
+        int chartWidth = rectChart.width();
+        int chartHeight = rectChart.height();
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 touchPoint.set(x, y);
                 refresh();
                 return true;
             case MotionEvent.ACTION_MOVE:
-                x = (x > screenWidth) ? screenWidth : (x < 0) ? 0 : x;
-                y = (y > screenHeight) ? screenHeight : (y < 0) ? 0 : y;
+                x = (x > chartWidth) ? chartWidth : (x < 0) ? 0 : x;
+                y = (y > chartHeight) ? chartHeight : (y < 0) ? 0 : y;
                 touchPoint.set(x, y);
                 refresh();
                 return true;
@@ -227,9 +235,13 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     private void updateScreenSize(int width, int height) {
         this.screenWidth = width;
         this.screenHeight = height;
-        rectLines.set(0, 0, screenWidth - 100, screenHeight);
+        rectChart.set(properties.chartMarginLeft,
+                      properties.chartMarginTop,
+                      screenWidth - properties.chartMarginRight,
+                      screenHeight - properties.chartMarginBottom);
+        logger.e("update w=%s", rectChart.toString());
         if (dataSet != null) {
-            dataSet.updatePoints(rectLines.width(), rectLines.height());
+            dataSet.updatePoints(rectChart.width(), rectChart.height());
         }
     }
 
