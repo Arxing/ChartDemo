@@ -6,7 +6,6 @@ import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
@@ -51,6 +50,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
     //rect
     private Rect rectXDescription = new Rect();
+    private Rect rectLines = new Rect();
 
     //point
     private PointF touchPoint = new PointF(OUTSIDE_XY, OUTSIDE_XY);
@@ -81,7 +81,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     private void initPaint() {
-        pTargetPoint.setColor(Color.RED);
+        pTargetPoint.setColor(Color.parseColor("#ae67abb9"));
         pTargetPoint.setStrokeWidth(10);
         pTargetPoint.setStyle(Paint.Style.FILL);
         pTargetPoint.setAntiAlias(true);
@@ -89,6 +89,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         pTouchGuide.setColor(Color.YELLOW);
         pTouchGuide.setStrokeWidth(1.5f);
         pTouchGuide.setAntiAlias(true);
+        pTouchGuide.setColor(Color.parseColor("#a0ffff00"));
 
         tpXDescription.setTextSize(UnitParser.sp2px(getContext(), 30));
         tpXDescription.setColor(Color.MAGENTA);
@@ -110,26 +111,27 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     @Override public boolean handleMessage(Message msg) {
-        canvas = holder.lockCanvas();
+        canvas = holder.lockCanvas(rectLines);
         canvas.drawColor(Color.TRANSPARENT);
         pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
         canvas.drawPaint(pClean);
         pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
 
+        int width = rectLines.width();
+        int height = rectLines.height();
+
         canvas.drawColor(Color.BLACK);
-        drawFrame(properties.rows, properties.columns);
+        drawFrame(properties.rows, properties.columns, width, height);
         if (dataSet != null) {
-            drawData(dataSet.toPoints());
-            drawPoint();
+            drawData(dataSet.toPoints(), width, height);
+            drawPoint(width, height);
         }
         holder.unlockCanvasAndPost(canvas);
         return true;
     }
 
     @Override public void surfaceCreated(SurfaceHolder holder) {
-        screenWidth = getWidth();
-        screenHeight = getHeight();
-        updateDataSetSize();
+        updateScreenSize(getWidth(), getHeight());
 
         thread = new HandlerThread("name");
         thread.start();
@@ -138,9 +140,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        screenWidth = getWidth();
-        screenHeight = getHeight();
-        updateDataSetSize();
+        updateScreenSize(getWidth(), getHeight());
     }
 
     @Override public void surfaceDestroyed(SurfaceHolder holder) {
@@ -148,12 +148,26 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_UP) {
-            touchPoint.set(OUTSIDE_XY, OUTSIDE_XY);
-            refresh();
-            return true;
-        } else
-            return gestureDetector.onTouchEvent(event);
+        float x = event.getX();
+        float y = event.getY();
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                touchPoint.set(x, y);
+                refresh();
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                x = (x > screenWidth) ? screenWidth : (x < 0) ? 0 : x;
+                y = (y > screenHeight) ? screenHeight : (y < 0) ? 0 : y;
+                touchPoint.set(x, y);
+                refresh();
+                return true;
+            case MotionEvent.ACTION_UP:
+                touchPoint.set(OUTSIDE_XY, OUTSIDE_XY);
+                refresh();
+                return true;
+            default:
+                return gestureDetector.onTouchEvent(event);
+        }
     }
 
     private void refresh() {
@@ -161,59 +175,61 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         handler.sendEmptyMessage(100);
     }
 
-    private void drawFrame(int rows, int columns) {
-        int xStep = screenWidth / (columns + 1);
-        int yStep = screenHeight / (rows + 1);
+    private void drawFrame(int rows, int columns, int width, int height) {
+        int xStep = width / (columns + 1);
+        int yStep = height / (rows + 1);
         for (int i = 1; i < columns + 1; i++) {
             int x = xStep * i;
-            canvas.drawLine(x, 0, x, screenHeight, pFrame);
+            canvas.drawLine(x, 0, x, height, pFrame);
         }
         for (int i = 1; i < rows + 1; i++) {
             int y = yStep * i;
-            canvas.drawLine(0, y, screenWidth, y, pFrame);
+            canvas.drawLine(0, y, width, y, pFrame);
         }
     }
 
-    private void drawPoint() {
+    private void drawPoint(int width, int height) {
         float x = touchPoint.x;
         float y = touchPoint.y;
-        pTouchGuide.setColor(Color.GREEN);
-        canvas.drawLine(x, 0, x, screenHeight, pTouchGuide);
-        pTouchGuide.setColor(Color.YELLOW);
+        canvas.drawLine(x, 0, x, height, pTouchGuide);
         if (dataSet.isMatched(x)) {
             DataSet.Box box = dataSet.findMatched(x);
             dataSet.notifyMatched(box.data);
             PointF target = dataSet.findMatchedPoint(x);
-            canvas.drawLine(0, target.y, screenWidth, target.y, pTouchGuide);
+            canvas.drawLine(0, target.y, width, target.y, pTouchGuide);
             canvas.drawCircle(target.x, target.y, 10, pTargetPoint);
         } else {
-            canvas.drawLine(0, y, screenWidth, y, pTouchGuide);
+            canvas.drawLine(0, y, width, y, pTouchGuide);
         }
     }
 
-    private void drawData(List<PointF> points) {
-        pathData.moveTo(0, screenHeight);
+    private void drawData(List<PointF> points, int width, int height) {
         if (points.size() > 0) {
             PointF first = points.get(0);
-            pathData.lineTo(first.x, first.y);
+            pathData.moveTo(first.x, first.y);
             for (PointF point : points) {
                 float x = point.x;
                 float y = point.y;
                 pathData.lineTo(x, y);
             }
         }
-        pathData.lineTo(screenWidth, screenHeight);
-        pathData.lineTo(0, screenHeight);
-        pathDataFill.set(pathData);
+        pathDataFill.moveTo(0, height);
+        pathDataFill.addPath(pathData);
+        pathDataFill.lineTo(width, height);
+        pathDataFill.lineTo(0, height);
+
         canvas.drawPath(pathDataFill, pDataFill);
         canvas.drawPath(pathData, pData);
         pathDataFill.reset();
         pathData.reset();
     }
 
-    private void updateDataSetSize() {
+    private void updateScreenSize(int width, int height) {
+        this.screenWidth = width;
+        this.screenHeight = height;
+        rectLines.set(0, 0, screenWidth - 100, screenHeight);
         if (dataSet != null) {
-            dataSet.updatePoints(screenWidth, screenHeight);
+            dataSet.updatePoints(rectLines.width(), rectLines.height());
         }
     }
 
@@ -223,22 +239,5 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
     private GestureDetector.SimpleOnGestureListener gestureListener = new GestureDetector.SimpleOnGestureListener() {
 
-        @Override public boolean onDown(MotionEvent e) {
-            touchPoint.set((int) e.getX(), (int) e.getY());
-            refresh();
-            return true;
-        }
-
-        @Override public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            int x = (int) e2.getX();
-            int y = (int) e2.getY();
-            x = (x > screenWidth) ? screenWidth : (x < 0) ? 0 : x;
-            y = (y > screenHeight) ? screenHeight : (y < 0) ? 0 : y;
-            touchPoint.set(x, y);
-            refresh();
-            return super.onScroll(e1, e2, distanceX, distanceY);
-        }
     };
-
-
 }

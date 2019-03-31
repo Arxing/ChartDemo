@@ -23,6 +23,7 @@ public class DataSet<T> {
     private float scaleX = 1.0f;
     private float scaleY = 1.0f;
     private OnMatchedPointListener<T> listener;
+    private float threashold = 20;
 
     public DataSet(Function<T, Float> xTrans, Function<T, Float> yTrans) {
         setXTransfer(xTrans);
@@ -34,6 +35,12 @@ public class DataSet<T> {
         xMax = getXMaxValue();
         yMin = getYMinValue();
         yMax = getYMaxValue();
+        float xHalf = (xMax - xMin) * (scaleX - 1f) * 0.5f;
+        float yHalf = (yMax - yMin) * (scaleY - 1f) * 0.5f;
+        xMin -= xHalf;
+        xMax += xHalf;
+        yMin -= yHalf;
+        yMax += yHalf;
     }
 
     void notifyMatched(T data) {
@@ -44,7 +51,11 @@ public class DataSet<T> {
     }
 
     Box findMatched(float x) {
-        return Stream.of(dataSet).filter(o -> Math.abs(o.point.x - x) < 5).findFirst().orElse(null);
+        return Stream.of(dataSet).filter(o -> Math.abs(o.point.x - x) < threashold).min((box1, box2) -> {
+            float d1 = Math.abs(box1.point.x - x);
+            float d2 = Math.abs(box2.point.x - x);
+            return Float.compare(d1, d2);
+        }).orElse(null);
     }
 
     public void setOnMatchedPointListener(OnMatchedPointListener<T> listener) {
