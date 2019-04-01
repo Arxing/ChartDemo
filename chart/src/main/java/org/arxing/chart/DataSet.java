@@ -1,31 +1,40 @@
 package org.arxing.chart;
 
-import android.graphics.Point;
 import android.graphics.PointF;
 
 import com.annimon.stream.Stream;
 
 import org.arxing.chart.protocol.Function;
+import org.arxing.utils.TimeUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.arxing.chart.Chart.OUTSIDE_XY;
 
+/**
+ * 時間緊迫亂亂寫 x軸鎖死為時間(long)  y軸鎖死為值
+ *
+ * @param <T>
+ */
 public class DataSet<T> {
     private List<Box> dataSet = new ArrayList<>();
     private List<PointF> tmpPoints = new ArrayList<>();
 
-    private Function<T, Float> xValueTransfer;
+    private Function<T, Long> xValueTransfer;
     private Function<T, Float> yValueTransfer;
-    private float xMax, xMin, yMax, yMin;
+    private float yMax, yMin;
+    private long xMax, xMin;
     private int width, height;
     private float scaleX = 1.0f;
-    private float scaleY = 1.0f;
+    private float scaleY = 1.8f;
     private OnMatchedPointListener<T> listener;
-    private float threashold = 20;
+    private float threshold = 20;
+    private T tmpData;
+    private String xTimePattern;
+    private String yValPattern;
 
-    public DataSet(Function<T, Float> xTrans, Function<T, Float> yTrans) {
+    public DataSet(Function<T, Long> xTrans, Function<T, Float> yTrans) {
         setXTransfer(xTrans);
         setYTransfer(yTrans);
     }
@@ -46,23 +55,37 @@ public class DataSet<T> {
     void notifyMatched(T data) {
         float xValue = xValueTransfer.apply(data);
         float yValue = yValueTransfer.apply(data);
-        if (listener != null)
+        if (listener != null && data != tmpData) {
+            tmpData = data;
             listener.onMatch(data, xValue, yValue);
+        }
     }
 
     Box findMatched(float x) {
-        return Stream.of(dataSet).filter(o -> Math.abs(o.point.x - x) < threashold).min((box1, box2) -> {
+        return Stream.of(dataSet).filter(o -> Math.abs(o.point.x - x) < threshold).min((box1, box2) -> {
             float d1 = Math.abs(box1.point.x - x);
             float d2 = Math.abs(box2.point.x - x);
             return Float.compare(d1, d2);
         }).orElse(null);
     }
 
+    public void setXTimePattern(String xTimePattern) {
+        this.xTimePattern = xTimePattern;
+    }
+
+    public void setYValPattern(String yValPattern) {
+        this.yValPattern = yValPattern;
+    }
+
+    public void setScaleY(float scaleY) {
+        this.scaleY = scaleY;
+    }
+
     public void setOnMatchedPointListener(OnMatchedPointListener<T> listener) {
         this.listener = listener;
     }
 
-    public void setXTransfer(Function<T, Float> xTransfer) {
+    public void setXTransfer(Function<T, Long> xTransfer) {
         this.xValueTransfer = xTransfer;
     }
 
@@ -82,21 +105,12 @@ public class DataSet<T> {
         updateVal();
     }
 
-    public void addData(T o) {
-        Box box = new Box();
-        box.data = o;
-        box.xValue = xValueTransfer.apply(o);
-        box.yValue = yValueTransfer.apply(o);
-        dataSet.add(box);
-        updateVal();
+    public long getXMinValue() {
+        return Stream.of(dataSet).map(o -> xValueTransfer.apply(o.data)).min(Long::compare).get();
     }
 
-    public float getXMinValue() {
-        return Stream.of(dataSet).map(o -> xValueTransfer.apply(o.data)).min(Float::compare).get();
-    }
-
-    public float getXMaxValue() {
-        return Stream.of(dataSet).map(o -> xValueTransfer.apply(o.data)).max(Float::compare).get();
+    public long getXMaxValue() {
+        return Stream.of(dataSet).map(o -> xValueTransfer.apply(o.data)).max(Long::compare).get();
     }
 
     public float getYMinValue() {
@@ -118,7 +132,7 @@ public class DataSet<T> {
         Stream.of(dataSet).forEach(box -> {
             T data = box.data;
             //X軸的值
-            float xVal = xValueTransfer.apply(data);
+            long xVal = xValueTransfer.apply(data);
             //X軸的座標值
             float x = (int) ((xVal - xMin) * width / (xMax - xMin));
             //Y軸的值
@@ -150,10 +164,36 @@ public class DataSet<T> {
         return result;
     }
 
+    public float[] splitYValues(int rows) {
+        float[] result = new float[rows + 1];
+        float step = (yMax - yMin) / (rows + 1);
+        for (int i = 0; i < rows + 1; i++) {
+            result[i] = yMin + step * i;
+        }
+        return result;
+    }
+
+    public long[] splitXValues(int columns) {
+        long[] result = new long[columns + 1];
+        long step = (xMax - xMin) / (columns + 1);
+        for (int i = 0; i < columns + 1; i++) {
+            result[i] = xMin + step * i;
+        }
+        return result;
+    }
+
+    public String showX(long v) {
+        return TimeUtils.format(xTimePattern, v);
+    }
+
+    public String showY(float v) {
+        return String.format(yValPattern, v);
+    }
+
     class Box {
         T data;
         PointF point = new PointF();
-        float xValue;
+        long xValue;
         float yValue;
     }
 

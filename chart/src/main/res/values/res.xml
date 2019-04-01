@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">chart</string>
+
+    <declare-styleable name="Chart">
+        <attr name="chart_line_color" format="color"/>
+        <attr name="chart_line_bg_color" format="color"/>
+        <attr name="chart_target_bg_color" format="color"/>
+        <attr name="chart_target_text_color" format="color"/>
+        <attr name="chart_guide_line_color" format="color"/>
+        <attr name="chart_guide_point_color" format="color"/>
+        <attr name="chart_rows" format="integer"/>
+        <attr name="chart_columns" format="integer"/>
+        <attr name="chart_x_time_pattern" format="string"/>
+        <attr name="chart_y_val_pattern" format="string"/>
+        <attr name="chart_scale_y" format="float"/>
+    </declare-styleable>
+</resources>

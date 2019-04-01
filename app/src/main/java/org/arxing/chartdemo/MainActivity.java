@@ -7,38 +7,61 @@ import android.os.Bundle;
 import org.arxing.chart.Chart;
 import org.arxing.chart.DataSet;
 import org.arxing.utils.Logger;
+import org.arxing.utils.TimeUtils;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
     Chart chart;
-    DataSet<PointF> dataSet;
+    DataSet<Data> dataSet;
     Random random = new Random();
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         chart = findViewById(R.id.chart);
-        dataSet = new DataSet<>(o -> o.x, o -> o.y);
+        dataSet = new DataSet<>(o -> o.time, o -> o.val);
 
         dataSet.setOnMatchedPointListener((data, xValue, yValue) -> {
-//            Logger.defLogger.e("xValue=%f, yValue=%f", xValue, yValue);
+            Logger.defLogger.e("xValue=%f, yValue=%f", xValue, yValue);
         });
 
-
+        List<Data> list = new ArrayList<>();
         int preVal = random.nextInt(100);
         for (int i = 0; i < 100; i++) {
             int val = preVal + randomOffset(100);
-            dataSet.addData(new PointF(i, val));
+            long time = random.nextLong() % (1554106194164L - 1554100000000L) + 1554100000000L;
+            list.add(new Data(time, val));
             preVal = val;
         }
+        Collections.sort(list, (o1, o2) -> Long.compare(o1.time, o2.time));
+        dataSet.setData(list);
         chart.setDataSet(dataSet);
     }
 
     private int randomOffset(int range) {
-        int v = random.nextInt(range) - range/2;
-        Logger.defLogger.e("v=%d",v);
+        int v = random.nextInt(range) - range / 2;
+        Logger.defLogger.e("v=%d", v);
         return v;
+    }
+
+    static class Data {
+        long time;
+        float val;
+
+        public Data(String time, float val) {
+            this.time = TimeUtils.parse("yyyy-MM-dd HH:mm:ss", time).getTime();
+            this.val = val;
+        }
+
+        public Data(long time, float val) {
+            this.time = time;
+            this.val = val;
+        }
     }
 
 }

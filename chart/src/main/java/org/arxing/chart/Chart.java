@@ -1,6 +1,7 @@
 package org.arxing.chart;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
@@ -13,6 +14,7 @@ import android.graphics.Rect;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.support.annotation.ColorInt;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
@@ -38,45 +40,49 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     private HandlerThread thread;
     private Handler handler;
     final static int OUTSIDE_XY = -1000;
+    private int offsetX;
+    private int offsetY = UnitParser.dp2px(getContext(), 20);
 
     //paint
-    private TextPaint tpXDescription = new TextPaint();
+    private TextPaint tpDescription = new TextPaint();
+    private Paint pFrameDash = new Paint();
     private Paint pFrame = new Paint();
-    private Paint pTargetPoint = new Paint();
-    private Paint pTouchGuide = new Paint();
+    private Paint pGiudePoint = new Paint();
+    private Paint pGuideLine = new Paint();
     private Paint pData = new Paint();
     private Paint pDataFill = new Paint();
     private Paint pClean = new Paint();
+    private Paint pTargetBg = new Paint();
 
     //rect
     private Rect rectXDescription = new Rect();
     private Rect rectChart = new Rect();
+    private Rect rectTargetXBg = new Rect();
+    private Rect rectTargetXText = new Rect();
+    private Rect rectTargetYBg = new Rect();
+    private Rect rectTargetYText = new Rect();
 
     //point
     private PointF touchPoint = new PointF(OUTSIDE_XY, OUTSIDE_XY);
 
-    private Properties properties;
-
-    class Properties {
-
-        int rows;
-        int columns;
-        int chartMarginLeft = UnitParser.dp2px(getContext(), 10);
-        int chartMarginRight = UnitParser.dp2px(getContext(), 10);
-        int chartMarginTop = UnitParser.dp2px(getContext(), 10);
-        int chartMarginBottom = UnitParser.dp2px(getContext(), 10);
-
-        {
-            rows = 7;
-            columns = 3;
-        }
-    }
+    // properties
+    private @ColorInt int frameDescriptionColor = Color.parseColor("#222222");
+    private @ColorInt int lineColor = Color.parseColor("#67abb9");
+    private @ColorInt int lineBgColor = Color.parseColor("#3067abb9");
+    private @ColorInt int targetBgColor = Color.parseColor("#54b8e4");
+    private @ColorInt int targetTextColor = Color.parseColor("#eeeeee");
+    private @ColorInt int guideLineColor = Color.parseColor("#67abb9");
+    private @ColorInt int guidePointColor = Color.parseColor("#ae67abb9");
+    private int rows = 5;
+    private int columns = 3;
+    private String xTimePattern = "M/d HH:mm";
+    private String yValPattern = "%.2f";
+    private float scaleY = 1.0f;
 
     public Chart(Context context, AttributeSet attrs) {
         super(context, attrs);
-
+        initAttr(attrs);
         gestureDetector = new GestureDetector(getContext(), gestureListener);
-        properties = new Properties();
         setClickable(true);
         setFocusable(true);
         initPaint();
@@ -84,56 +90,59 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         holder.addCallback(this);
     }
 
+    private void initAttr(AttributeSet attrs) {
+        TypedArray a = getContext().obtainStyledAttributes(attrs, R.styleable.Chart);
+        lineColor = a.getColor(R.styleable.Chart_chart_line_color, lineColor);
+        lineBgColor = a.getColor(R.styleable.Chart_chart_line_bg_color, lineBgColor);
+        targetBgColor = a.getColor(R.styleable.Chart_chart_target_bg_color, targetBgColor);
+        targetTextColor = a.getColor(R.styleable.Chart_chart_target_text_color, targetTextColor);
+        guideLineColor = a.getColor(R.styleable.Chart_chart_guide_line_color, guideLineColor);
+        guidePointColor = a.getColor(R.styleable.Chart_chart_guide_point_color, guidePointColor);
+        rows = a.getInt(R.styleable.Chart_chart_rows, rows);
+        columns = a.getInt(R.styleable.Chart_chart_columns, columns);
+        scaleY = a.getFloat(R.styleable.Chart_chart_scale_y, scaleY);
+        if (a.hasValue(R.styleable.Chart_chart_x_time_pattern))
+            xTimePattern = a.getString(R.styleable.Chart_chart_x_time_pattern);
+        if (a.hasValue(R.styleable.Chart_chart_y_val_pattern))
+            yValPattern = a.getString(R.styleable.Chart_chart_y_val_pattern);
+        a.recycle();
+    }
+
     private void initPaint() {
-        pTargetPoint.setColor(Color.parseColor("#ae67abb9"));
-        pTargetPoint.setStrokeWidth(10);
-        pTargetPoint.setStyle(Paint.Style.FILL);
-        pTargetPoint.setAntiAlias(true);
+        pGiudePoint.setColor(guidePointColor);
+        pGiudePoint.setStrokeWidth(10);
+        pGiudePoint.setStyle(Paint.Style.FILL);
+        pGiudePoint.setAntiAlias(true);
 
-        pTouchGuide.setColor(Color.YELLOW);
-        pTouchGuide.setStrokeWidth(1.5f);
-        pTouchGuide.setAntiAlias(true);
-        pTouchGuide.setColor(Color.parseColor("#a0ffff00"));
+        pGuideLine.setColor(Color.YELLOW);
+        pGuideLine.setStrokeWidth(1.5f);
+        pGuideLine.setAntiAlias(true);
+        pGuideLine.setColor(guideLineColor);
 
-        tpXDescription.setTextSize(UnitParser.sp2px(getContext(), 30));
-        tpXDescription.setColor(Color.MAGENTA);
-        tpXDescription.setAntiAlias(true);
+        tpDescription.setTextSize(UnitParser.sp2px(getContext(), 14));
+        tpDescription.setColor(frameDescriptionColor);
+        tpDescription.setAntiAlias(true);
 
-        pFrame.setColor(Color.DKGRAY);
-        pFrame.setStrokeWidth(1.5f);
-        pFrame.setPathEffect(new DashPathEffect(new float[]{20, 10}, 0));
+        pFrameDash.setColor(Color.parseColor("#60888888"));
+        pFrameDash.setStrokeWidth(1.2f);
+        pFrameDash.setPathEffect(new DashPathEffect(new float[]{20, 10}, 0));
+        pFrameDash.setAntiAlias(true);
+
+        pFrame.setColor(frameDescriptionColor);
+        pFrame.setStrokeWidth(3f);
         pFrame.setAntiAlias(true);
 
         pData.setStyle(Paint.Style.STROKE);
         pData.setStrokeWidth(3f);
-        pData.setColor(Color.parseColor("#67abb9"));
+        pData.setColor(lineColor);
         pData.setAntiAlias(true);
 
         pDataFill.setStyle(Paint.Style.FILL);
-        pDataFill.setColor(Color.parseColor("#3067abb9"));
+        pDataFill.setColor(lineBgColor);
         pDataFill.setAntiAlias(true);
-    }
 
-    @Override public boolean handleMessage(Message msg) {
-        canvas = holder.lockCanvas();
-        canvas.drawColor(Color.TRANSPARENT);
-        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
-        canvas.drawPaint(pClean);
-        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
-
-        int width = rectChart.width();
-        int height = rectChart.height();
-
-        canvas.drawColor(Color.BLACK);
-        drawFrame(properties.rows, properties.columns, width, height);
-        if (dataSet != null) {
-
-            logger.e("handle w=%s", rectChart.toString());
-            drawData(dataSet.toPoints(), width, height);
-            drawPoint(width, height);
-        }
-        holder.unlockCanvasAndPost(canvas);
-        return true;
+        pTargetBg.setColor(targetBgColor);
+        pTargetBg.setAntiAlias(true);
     }
 
     @Override public void surfaceCreated(SurfaceHolder holder) {
@@ -154,18 +163,23 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
+        int l = rectChart.left;
+        int t = rectChart.top;
+        int r = rectChart.right;
+        int b = rectChart.bottom;
         float x = event.getX();
         float y = event.getY();
-        int chartWidth = rectChart.width();
-        int chartHeight = rectChart.height();
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                touchPoint.set(x, y);
-                refresh();
-                return true;
+                if (rectChart.contains((int) x, (int) y)) {
+                    touchPoint.set(x, y);
+                    refresh();
+                    return true;
+                }
+                return false;
             case MotionEvent.ACTION_MOVE:
-                x = (x > chartWidth) ? chartWidth : (x < 0) ? 0 : x;
-                y = (y > chartHeight) ? chartHeight : (y < 0) ? 0 : y;
+                x = (x > r) ? r : (x < 0) ? 0 : x;
+                y = (y > b) ? b : (y < 0) ? 0 : y;
                 touchPoint.set(x, y);
                 refresh();
                 return true;
@@ -178,53 +192,156 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         }
     }
 
+    @Override public boolean handleMessage(Message msg) {
+        canvas = holder.lockCanvas();
+        canvas.drawColor(Color.TRANSPARENT);
+        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+        canvas.drawPaint(pClean);
+        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+
+        int l = rectChart.left;
+        int t = rectChart.top;
+        int r = rectChart.right;
+        int b = rectChart.bottom;
+
+        canvas.drawColor(Color.WHITE);
+        drawFrame(rows, columns, l, t, r, b);
+        drawFrameDash(rows, columns, l, t, r, b);
+        if (dataSet != null) {
+            drawData(dataSet.toPoints(), l, t, r, b);
+            drawPoint(l, t, r, b);
+            drawTarget(l, t, r, b);
+        }
+        holder.unlockCanvasAndPost(canvas);
+        return true;
+    }
+
     private void refresh() {
         handler.removeMessages(100);
         handler.sendEmptyMessage(100);
     }
 
-    private void drawFrame(int rows, int columns, int width, int height) {
-        int xStep = width / (columns + 1);
-        int yStep = height / (rows + 1);
-        for (int i = 1; i < columns + 1; i++) {
+    private void drawFrame(int rows, int columns, int l, int t, int r, int b) {
+        //vertical
+        canvas.drawLine(r, 0, r, b, pFrame);
+
+        //horizontal
+        canvas.drawLine(0, b, r, b, pFrame);
+
+        tpDescription.setColor(frameDescriptionColor);
+        int xStep = (r - l) / (columns + 1);
+        int yStep = (b - t) / (rows + 1);
+        long[] xValues = dataSet.splitXValues(columns);
+        for (int i = 0; i < columns + 1; i++) {
+            if (i == 0)
+                continue;
             int x = xStep * i;
-            canvas.drawLine(x, 0, x, height, pFrame);
+            String show = dataSet.showX(xValues[i]);
+            tpDescription.getTextBounds(show, 0, show.length(), rectXDescription);
+            x -= rectXDescription.width() / 2;
+            canvas.drawText(show, x, b + rectXDescription.height() + 10, tpDescription);
         }
-        for (int i = 1; i < rows + 1; i++) {
-            int y = yStep * i;
-            canvas.drawLine(0, y, width, y, pFrame);
+        float[] yValues = dataSet.splitYValues(rows);
+        for (int i = rows; i >= 0; i--) {
+            if (i == 0)
+                continue;
+            int y = (b - t) - yStep * i;
+            String show = dataSet.showY(yValues[i]);
+            tpDescription.getTextBounds(show, 0, show.length(), rectXDescription);
+            if (r + rectXDescription.width() + 10 > screenWidth) {
+                offsetX = rectXDescription.width() + UnitParser.dp2px(getContext(), 5) + 10;
+                updateScreenSize(screenWidth, screenHeight);
+                refresh();
+                logger.e("refresh");
+                return;
+            }
+            y += rectXDescription.height() / 2;
+            canvas.drawText(show, r + 10, y, tpDescription);
         }
     }
 
-    private void drawPoint(int width, int height) {
+    private void drawFrameDash(int rows, int columns, int l, int t, int r, int b) {
+        int xStep = (r - l) / (columns + 1);
+        int yStep = (b - t) / (rows + 1);
+        for (int i = 1; i < columns + 1; i++) {
+            int x = xStep * i;
+            canvas.drawLine(x + l, t, x + l, b, pFrameDash);
+        }
+        for (int i = 1; i < rows + 1; i++) {
+            int y = yStep * i;
+            canvas.drawLine(l, y + t, r, y + t, pFrameDash);
+        }
+    }
+
+    private void drawPoint(int l, int t, int r, int b) {
         float x = touchPoint.x;
         float y = touchPoint.y;
-        canvas.drawLine(x, 0, x, height, pTouchGuide);
+        canvas.drawLine(x, 0, x, b, pGuideLine);
         if (dataSet.isMatched(x)) {
             DataSet.Box box = dataSet.findMatched(x);
             dataSet.notifyMatched(box.data);
             PointF target = dataSet.findMatchedPoint(x);
-            canvas.drawLine(0, target.y, width, target.y, pTouchGuide);
-            canvas.drawCircle(target.x, target.y, 10, pTargetPoint);
+            canvas.drawLine(0, target.y, r, target.y, pGuideLine);
+            canvas.drawCircle(target.x, target.y, 10, pGiudePoint);
         } else {
-            canvas.drawLine(0, y, width, y, pTouchGuide);
+            canvas.drawLine(0, y, 0, y, pGuideLine);
         }
     }
 
-    private void drawData(List<PointF> points, int width, int height) {
+    private void drawTarget(int l, int t, int r, int b) {
+        float x = touchPoint.x;
+        float y = touchPoint.y;
+        if (dataSet.isMatched(x)) {
+            tpDescription.setColor(targetTextColor);
+
+            DataSet.Box box = dataSet.findMatched(x);
+            PointF target = dataSet.findMatchedPoint(x);
+            String yShow = dataSet.showY(box.yValue);
+            tpDescription.getTextBounds(yShow, 0, yShow.length(), rectTargetXText);
+            int paddingVertical = UnitParser.dp2px(getContext(), 5);
+            rectTargetXBg.set(rectTargetXText);
+            rectTargetXBg.top = rectTargetXBg.top - paddingVertical;
+            rectTargetXBg.bottom = rectTargetXBg.bottom + paddingVertical;
+            rectTargetXBg.left = r;
+            rectTargetXBg.right = screenWidth;
+            rectTargetXBg.offsetTo(r, (int) (target.y - rectTargetXBg.height() / 2));
+            canvas.drawRect(rectTargetXBg, pTargetBg);
+            canvas.drawText(yShow,
+                            rectTargetXBg.centerX() - rectTargetXText.width() / 2,
+                            rectTargetXBg.centerY() + rectTargetXText.height() / 2,
+                            tpDescription);
+
+            String xShow = dataSet.showX(box.xValue);
+            tpDescription.getTextBounds(xShow, 0, xShow.length(), rectTargetYText);
+            int paddingHorizontal = UnitParser.dp2px(getContext(), 5);
+            rectTargetYBg.set(rectTargetYText);
+            rectTargetYBg.left = rectTargetYBg.left - paddingHorizontal;
+            rectTargetYBg.right = rectTargetYBg.right + paddingHorizontal;
+            rectTargetYBg.top = b;
+            rectTargetYBg.bottom = screenHeight;
+            rectTargetYBg.offsetTo((int) (target.x - rectTargetYBg.width() / 2), b);
+            canvas.drawRect(rectTargetYBg, pTargetBg);
+            canvas.drawText(xShow,
+                            rectTargetYBg.centerX() - rectTargetYText.width() / 2,
+                            rectTargetYBg.centerY() + rectTargetYText.height() / 2,
+                            tpDescription);
+        }
+    }
+
+    private void drawData(List<PointF> points, int l, int t, int r, int b) {
         if (points.size() > 0) {
             PointF first = points.get(0);
-            pathData.moveTo(first.x, first.y);
+            pathData.moveTo(first.x + l, first.y + t);
             for (PointF point : points) {
                 float x = point.x;
                 float y = point.y;
-                pathData.lineTo(x, y);
+                pathData.lineTo(x + l, y + t);
             }
         }
-        pathDataFill.moveTo(0, height);
+        pathDataFill.moveTo(l, b);
         pathDataFill.addPath(pathData);
-        pathDataFill.lineTo(width, height);
-        pathDataFill.lineTo(0, height);
+        pathDataFill.lineTo(r, b);
+        pathDataFill.lineTo(l, b);
 
         canvas.drawPath(pathDataFill, pDataFill);
         canvas.drawPath(pathData, pData);
@@ -235,11 +352,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     private void updateScreenSize(int width, int height) {
         this.screenWidth = width;
         this.screenHeight = height;
-        rectChart.set(properties.chartMarginLeft,
-                      properties.chartMarginTop,
-                      screenWidth - properties.chartMarginRight,
-                      screenHeight - properties.chartMarginBottom);
-        logger.e("update w=%s", rectChart.toString());
+        rectChart.set(0, 0, screenWidth - offsetX, screenHeight - offsetY);
         if (dataSet != null) {
             dataSet.updatePoints(rectChart.width(), rectChart.height());
         }
@@ -247,6 +360,9 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
     public void setDataSet(DataSet dataSet) {
         this.dataSet = dataSet;
+        dataSet.setXTimePattern(xTimePattern);
+        dataSet.setYValPattern(yValPattern);
+        dataSet.setScaleY(scaleY);
     }
 
     private GestureDetector.SimpleOnGestureListener gestureListener = new GestureDetector.SimpleOnGestureListener() {
