@@ -5,6 +5,7 @@ import android.graphics.PointF;
 import com.annimon.stream.Stream;
 
 import org.arxing.chart.protocol.Function;
+import org.arxing.utils.Logger;
 import org.arxing.utils.TimeUtils;
 
 import java.util.ArrayList;
@@ -34,9 +35,15 @@ public class DataSet<T> {
     private String xTimePattern;
     private String yValPattern;
 
+    private Chart host;
+
     public DataSet(Function<T, Long> xTrans, Function<T, Float> yTrans) {
         setXTransfer(xTrans);
         setYTransfer(yTrans);
+    }
+
+    void setHost(Chart host) {
+        this.host = host;
     }
 
     private void updateVal() {
@@ -67,6 +74,25 @@ public class DataSet<T> {
             float d2 = Math.abs(box2.point.x - x);
             return Float.compare(d1, d2);
         }).orElse(null);
+    }
+
+    void updatePoints(int width, int height) {
+        this.width = width;
+        this.height = height;
+        tmpPoints.clear();
+        Stream.of(dataSet).forEach(box -> {
+            T data = box.data;
+            //X軸的值
+            long xVal = xValueTransfer.apply(data);
+            //X軸的座標值
+            float x = (int) ((xVal - xMin) * width / (xMax - xMin));
+            //Y軸的值
+            float yVal = yValueTransfer.apply(data);
+            //Y軸的座標值
+            float y = (int) ((yVal - yMin) * height / (yMax - yMin));
+            box.point.set(x, y);
+            tmpPoints.add(new PointF(x, height - y));
+        });
     }
 
     public void setXTimePattern(String xTimePattern) {
@@ -103,6 +129,8 @@ public class DataSet<T> {
             return box;
         }).toList());
         updateVal();
+        host.updateDataPoints();
+        host.refresh();
     }
 
     public long getXMinValue() {
@@ -123,25 +151,6 @@ public class DataSet<T> {
 
     public int size() {
         return dataSet.size();
-    }
-
-    public void updatePoints(int width, int height) {
-        this.width = width;
-        this.height = height;
-        tmpPoints.clear();
-        Stream.of(dataSet).forEach(box -> {
-            T data = box.data;
-            //X軸的值
-            long xVal = xValueTransfer.apply(data);
-            //X軸的座標值
-            float x = (int) ((xVal - xMin) * width / (xMax - xMin));
-            //Y軸的值
-            float yVal = yValueTransfer.apply(data);
-            //Y軸的座標值
-            float y = (int) ((yVal - yMin) * height / (yMax - yMin));
-            box.point.set(x, y);
-            tmpPoints.add(new PointF(x, height - y));
-        });
     }
 
     public List<PointF> toPoints() {

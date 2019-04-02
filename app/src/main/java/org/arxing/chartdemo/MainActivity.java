@@ -1,8 +1,8 @@
 package org.arxing.chartdemo;
 
-import android.graphics.PointF;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
 
 import org.arxing.chart.Chart;
 import org.arxing.chart.DataSet;
@@ -11,7 +11,6 @@ import org.arxing.utils.TimeUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
@@ -30,6 +29,11 @@ public class MainActivity extends AppCompatActivity {
             Logger.defLogger.e("xValue=%f, yValue=%f", xValue, yValue);
         });
 
+        chart.setDataSet(dataSet);
+        dataSet.setData(randomData());
+    }
+
+    private List<Data> randomData() {
         List<Data> list = new ArrayList<>();
         int preVal = random.nextInt(100);
         for (int i = 0; i < 100; i++) {
@@ -39,14 +43,16 @@ public class MainActivity extends AppCompatActivity {
             preVal = val;
         }
         Collections.sort(list, (o1, o2) -> Long.compare(o1.time, o2.time));
-        dataSet.setData(list);
-        chart.setDataSet(dataSet);
+        return list;
     }
 
     private int randomOffset(int range) {
         int v = random.nextInt(range) - range / 2;
-        Logger.defLogger.e("v=%d", v);
         return v;
+    }
+
+    public void c(View v) {
+        dataSet.setData(randomData());
     }
 
     static class Data {

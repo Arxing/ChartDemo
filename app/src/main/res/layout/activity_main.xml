@@ -9,6 +9,12 @@
     android:background="#333333"
     >
 
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="c"
+        />
+
     <org.arxing.chart.Chart
         android:id="@+id/chart"
         android:layout_width="match_parent"

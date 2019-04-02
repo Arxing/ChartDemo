@@ -197,17 +197,15 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         if (canvas == null)
             return false;
 
-        canvas.drawColor(Color.TRANSPARENT);
-        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
-        canvas.drawPaint(pClean);
-        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+        clean();
+
+        Logger.defLogger.e("update");
 
         int l = rectChart.left;
         int t = rectChart.top;
         int r = rectChart.right;
         int b = rectChart.bottom;
 
-        canvas.drawColor(Color.WHITE);
         drawFrame(rows, columns, l, t, r, b);
         drawFrameDash(rows, columns, l, t, r, b);
         if (dataSet != null) {
@@ -217,6 +215,12 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         }
         holder.unlockCanvasAndPost(canvas);
         return true;
+    }
+
+    void updateDataPoints() {
+        if (dataSet != null && rectChart.width() * rectChart.height() > 0) {
+            dataSet.updatePoints(rectChart.width(), rectChart.height());
+        }
     }
 
     public void refresh() {
@@ -357,17 +361,25 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         this.screenWidth = width;
         this.screenHeight = height;
         rectChart.set(0, 0, screenWidth - offsetX, screenHeight - offsetY);
-        if (dataSet != null) {
-            dataSet.updatePoints(rectChart.width(), rectChart.height());
-        }
+        updateDataPoints();
     }
 
     public void setDataSet(DataSet dataSet) {
         this.dataSet = dataSet;
+        dataSet.setHost(this);
         dataSet.setXTimePattern(xTimePattern);
         dataSet.setYValPattern(yValPattern);
         dataSet.setScaleY(scaleY);
+        updateDataPoints();
         refresh();
+    }
+
+    public void clean() {
+        canvas.drawColor(Color.TRANSPARENT);
+        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+        canvas.drawPaint(pClean);
+        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+        canvas.drawColor(Color.WHITE);
     }
 
     private GestureDetector.SimpleOnGestureListener gestureListener = new GestureDetector.SimpleOnGestureListener() {
