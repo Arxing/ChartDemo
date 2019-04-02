@@ -7,6 +7,7 @@ import android.view.View;
 import org.arxing.chart.Chart;
 import org.arxing.chart.DataSet;
 import org.arxing.utils.Logger;
+import org.arxing.utils.ThreadUtil;
 import org.arxing.utils.TimeUtils;
 
 import java.util.ArrayList;
@@ -52,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void c(View v) {
+        dataSet.clearData();
+        ThreadUtil.sleep(100);
         dataSet.updateData(randomData());
     }
 

@@ -28,6 +28,8 @@ import org.arxing.utils.UnitParser;
 import java.util.List;
 
 public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handler.Callback {
+    private final static int REFRESH = 100;
+    private final static int CLEAR = 101;
     private Logger logger = new Logger("幹");
     private SurfaceHolder holder;
     private int screenWidth;
@@ -193,37 +195,51 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     @Override public boolean handleMessage(Message msg) {
-        canvas = holder.lockCanvas();
-        if (canvas == null)
-            return false;
+        switch (msg.what) {
+            case REFRESH:
+                canvas = holder.lockCanvas();
+                if (canvas != null) {
+                    canvas.drawColor(Color.TRANSPARENT);
+                    pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+                    canvas.drawPaint(pClean);
+                    pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+                    canvas.drawColor(Color.WHITE);
 
-        clean();
-        int l = rectChart.left;
-        int t = rectChart.top;
-        int r = rectChart.right;
-        int b = rectChart.bottom;
+                    int l = rectChart.left;
+                    int t = rectChart.top;
+                    int r = rectChart.right;
+                    int b = rectChart.bottom;
 
-        drawFrame(rows, columns, l, t, r, b);
-        drawFrameDash(rows, columns, l, t, r, b);
-        if (dataSet != null) {
-            drawData(dataSet.toPoints(), l, t, r, b);
-            drawPoint(l, t, r, b);
-            drawTarget(l, t, r, b);
+                    drawFrame(rows, columns, l, t, r, b);
+                    drawFrameDash(rows, columns, l, t, r, b);
+                    if (dataSet != null) {
+                        drawData(dataSet.toPoints(), l, t, r, b);
+                        drawPoint(l, t, r, b);
+                        drawTarget(l, t, r, b);
+                    }
+                    holder.unlockCanvasAndPost(canvas);
+                    return true;
+                }
+                break;
+            case CLEAR:
+                canvas = holder.lockCanvas();
+                if (canvas != null) {
+                    canvas.drawColor(Color.TRANSPARENT);
+                    pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+                    canvas.drawPaint(pClean);
+                    pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+                    canvas.drawColor(Color.WHITE);
+                    holder.unlockCanvasAndPost(canvas);
+                    return true;
+                }
+                break;
         }
-        holder.unlockCanvasAndPost(canvas);
-        return true;
+        return false;
     }
 
     void updateDataPoints() {
         if (dataSet != null && rectChart.width() * rectChart.height() > 0) {
             dataSet.updatePoints(rectChart.width(), rectChart.height());
-        }
-    }
-
-    public void refresh() {
-        if (handler != null) {
-            handler.removeMessages(100);
-            handler.sendEmptyMessage(100);
         }
     }
 
@@ -371,13 +387,17 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         refresh();
     }
 
+    public void refresh() {
+        if (handler != null) {
+            handler.removeMessages(REFRESH);
+            handler.sendEmptyMessage(REFRESH);
+        }
+    }
+
     public void clean() {
-        if (canvas != null) {
-            canvas.drawColor(Color.TRANSPARENT);
-            pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
-            canvas.drawPaint(pClean);
-            pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
-            canvas.drawColor(Color.WHITE);
+        if (handler != null) {
+            handler.removeMessages(CLEAR);
+            handler.sendEmptyMessage(CLEAR);
         }
     }
 
