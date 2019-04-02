@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         chart.setDataSet(dataSet);
-        dataSet.setData(randomData());
+        dataSet.updateData(randomData());
     }
 
     private List<Data> randomData() {
@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void c(View v) {
-        dataSet.setData(randomData());
+        dataSet.updateData(randomData());
     }
 
     static class Data {

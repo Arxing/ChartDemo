@@ -198,9 +198,6 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
             return false;
 
         clean();
-
-        Logger.defLogger.e("update");
-
         int l = rectChart.left;
         int t = rectChart.top;
         int r = rectChart.right;
@@ -375,11 +372,13 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     public void clean() {
-        canvas.drawColor(Color.TRANSPARENT);
-        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
-        canvas.drawPaint(pClean);
-        pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
-        canvas.drawColor(Color.WHITE);
+        if (canvas != null) {
+            canvas.drawColor(Color.TRANSPARENT);
+            pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+            canvas.drawPaint(pClean);
+            pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+            canvas.drawColor(Color.WHITE);
+        }
     }
 
     private GestureDetector.SimpleOnGestureListener gestureListener = new GestureDetector.SimpleOnGestureListener() {

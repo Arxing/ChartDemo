@@ -119,7 +119,11 @@ public class DataSet<T> {
         this.yValueTransfer = yTransfer;
     }
 
-    public void setData(List<T> data) {
+    public void clearData() {
+        host.clean();
+    }
+
+    public void updateData(List<T> data) {
         dataSet.clear();
         dataSet.addAll(Stream.of(data).map(o -> {
             Box box = new Box();
