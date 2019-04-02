@@ -147,7 +147,6 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
     @Override public void surfaceCreated(SurfaceHolder holder) {
         updateScreenSize(getWidth(), getHeight());
-
         thread = new HandlerThread("name");
         thread.start();
         handler = new Handler(thread.getLooper(), this);
@@ -194,6 +193,9 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
     @Override public boolean handleMessage(Message msg) {
         canvas = holder.lockCanvas();
+        if (canvas == null)
+            return false;
+
         canvas.drawColor(Color.TRANSPARENT);
         pClean.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
         canvas.drawPaint(pClean);
@@ -217,8 +219,10 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
     }
 
     private void refresh() {
-        handler.removeMessages(100);
-        handler.sendEmptyMessage(100);
+        if (handler != null) {
+            handler.removeMessages(100);
+            handler.sendEmptyMessage(100);
+        }
     }
 
     private void drawFrame(int rows, int columns, int l, int t, int r, int b) {
@@ -252,7 +256,6 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
                 offsetX = rectXDescription.width() + UnitParser.dp2px(getContext(), 5) + 10;
                 updateScreenSize(screenWidth, screenHeight);
                 refresh();
-                logger.e("refresh");
                 return;
             }
             y += rectXDescription.height() / 2;
@@ -363,6 +366,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         dataSet.setXTimePattern(xTimePattern);
         dataSet.setYValPattern(yValPattern);
         dataSet.setScaleY(scaleY);
+        refresh();
     }
 
     private GestureDetector.SimpleOnGestureListener gestureListener = new GestureDetector.SimpleOnGestureListener() {
