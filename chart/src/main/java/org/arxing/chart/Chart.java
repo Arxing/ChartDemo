@@ -155,6 +155,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
 
     @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         updateScreenSize(getWidth(), getHeight());
+        refresh();
     }
 
     @Override public void surfaceDestroyed(SurfaceHolder holder) {
@@ -218,7 +219,7 @@ public class Chart extends SurfaceView implements SurfaceHolder.Callback, Handle
         return true;
     }
 
-    private void refresh() {
+    public void refresh() {
         if (handler != null) {
             handler.removeMessages(100);
             handler.sendEmptyMessage(100);
